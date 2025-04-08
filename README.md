@@ -86,5 +86,3 @@ chmod +x scripts/swarm_deploy.sh
 # Запуск тестов
 ./scripts/run_tests.sh
 ```
-
-Подробная информация о тестах доступна в [tests/README.md](tests/README.md).

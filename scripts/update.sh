@@ -6,7 +6,7 @@ set -e
 echo "Обновление URL Checker..."
 
 # Проверка, находимся ли мы в директории проекта
-if [ ! -f "main.py" ] || [ ! -f "docker-compose.yml" ]; then
+if [ ! -f "app/main.py" ] || [ ! -f "docker/docker-compose.yml" ]; then
     echo "Ошибка: скрипт должен быть запущен из корневой директории проекта URL Checker."
     exit 1
 fi
@@ -39,18 +39,18 @@ git stash pop || true  # Игнорируем ошибку, если stash пу�
 # Проверка наличия Docker и Docker Compose
 if command -v docker &> /dev/null && command -v docker compose &> /dev/null; then
     echo "Обновление Docker-образа..."
-    docker compose build
+    docker compose -f docker/docker-compose.yml build
     
     # Проверка, запущен ли контейнер
-    if docker compose ps | grep -q "url-checker"; then
+    if docker compose -f docker/docker-compose.yml ps | grep -q "url-checker"; then
         echo "Перезапуск контейнера..."
-        docker compose up -d
+        docker compose -f docker/docker-compose.yml up -d
     else
-        echo "Контейнер не запущен. Для запуска выполните: docker compose up -d"
+        echo "Контейнер не запущен. Для запуска выполните: docker compose -f docker/docker-compose.yml up -d"
     fi
 else
     echo "Docker или Docker Compose не найдены. Обновление Docker-образа пропущено."
-    echo "Для запуска без Docker используйте: ./run_local.sh"
+    echo "Для запуска без Docker используйте: ./scripts/run_local.sh"
 fi
 
 echo "Обновление завершено."

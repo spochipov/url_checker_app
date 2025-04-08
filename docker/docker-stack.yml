@@ -9,7 +9,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     env_file:
-      - .env
+      - ../.env
     healthcheck:
       test: ["CMD", "curl", "-f", "${URL_TO_CHECK}"]
       interval: 30s

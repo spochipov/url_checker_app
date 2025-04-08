@@ -78,7 +78,7 @@ fi
 
 # Сборка образа
 echo "Сборка Docker-образа..."
-docker build -t ${DOCKER_REGISTRY}/url-checker:${TAG} .
+docker build -t ${DOCKER_REGISTRY}/url-checker:${TAG} -f docker/Dockerfile app
 
 # Если указан внешний реестр, отправляем образ
 if [ "$DOCKER_REGISTRY" != "localhost" ]; then
@@ -93,7 +93,7 @@ export REPLICAS
 
 # Развертывание стека
 echo "Развертывание стека ${STACK_NAME}..."
-docker stack deploy -c docker-stack.yml ${STACK_NAME}
+docker stack deploy -c docker/docker-stack.yml ${STACK_NAME}
 
 echo "Стек ${STACK_NAME} успешно развернут."
 echo "Для просмотра сервисов выполните: docker service ls"

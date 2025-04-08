@@ -38,7 +38,7 @@ source venv/bin/activate
 
 # Установка зависимостей
 echo "Установка зависимостей..."
-pip install -r requirements.txt
+pip install -r app/requirements.txt
 
 # Загрузка переменных окружения
 echo "Загрузка переменных окружения из .env..."
@@ -55,4 +55,4 @@ echo "Запуск URL Checker..."
 echo "Проверяемый URL: $URL_TO_CHECK"
 echo "Интервал проверки: ${INTERVAL_SECONDS:-60} секунд"
 echo "Для остановки нажмите Ctrl+C"
-python main.py
+python app/main.py

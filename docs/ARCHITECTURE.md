@@ -38,8 +38,7 @@ graph TD
         LOG_ERROR --> CONSOLE
     end
 end
-</mermaid>
-
+```
 ## Варианты развертывания
 
 ```mermaid
@@ -68,8 +67,7 @@ graph TD
     UPDATE["update.sh"] --> LOCAL
     UPDATE --> DOCKER
     UPDATE --> SWARM
-</mermaid>
-
+```
 ## Процесс мониторинга и уведомлений
 
 ```mermaid
@@ -91,8 +89,7 @@ sequenceDiagram
             Telegram-->>App: Подтверждение отправки
         end
     end
-</mermaid>
-
+```
 ## Архитектура Docker Swarm
 
 ```mermaid
@@ -132,8 +129,7 @@ graph TD
         REPLICA2 --> TELEGRAM
         REPLICA3 --> TELEGRAM
     end
-</mermaid>
-
+```
 ## Процесс развертывания в Docker Swarm
 
 ```mermaid
@@ -165,4 +161,4 @@ sequenceDiagram
     Swarm-->>Docker: Стек развернут
     Docker-->>Script: Результат развертывания
     Script-->>User: Информация о развернутом стеке
-</mermaid>
+```

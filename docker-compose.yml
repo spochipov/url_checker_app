@@ -1,0 +1,18 @@
+
+version: '3.8'
+
+services:
+  url-checker:
+    build: .
+    environment:
+      - URL_TO_CHECK=${URL_TO_CHECK}
+      - INTERVAL_SECONDS=${INTERVAL_SECONDS}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "${URL_TO_CHECK}"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

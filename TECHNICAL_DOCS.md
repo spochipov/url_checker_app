@@ -8,7 +8,9 @@ url_checker_app/
 ├── requirements.txt       # Зависимости Python
 ├── Dockerfile             # Инструкции для сборки Docker-образа
 ├── docker-compose.yml     # Конфигурация Docker Compose
+├── docker-stack.yml       # Конфигурация для Docker Swarm
 ├── deploy.sh              # Скрипт для развертывания на сервере
+├── swarm_deploy.sh        # Скрипт для развертывания в Docker Swarm
 ├── run_local.sh           # Скрипт для локального запуска без Docker
 ├── docker_test.sh         # Скрипт для тестирования Docker-конфигурации
 ├── update.sh              # Скрипт для обновления приложения
@@ -203,6 +205,71 @@ services:
 - Таймаут проверки: 5 секунд
 - Количество повторных попыток: 3
 
+### docker-stack.yml
+
+```yaml
+version: '3.8'
+
+services:
+  url-checker:
+    image: ${DOCKER_REGISTRY:-localhost}/url-checker:${TAG:-latest}
+    environment:
+      - URL_TO_CHECK=${URL_TO_CHECK}
+      - INTERVAL_SECONDS=${INTERVAL_SECONDS}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "${URL_TO_CHECK}"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      mode: replicated
+      replicas: ${REPLICAS:-1}
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - url-checker-network
+
+networks:
+  url-checker-network:
+    driver: overlay
+```
+
+Файл docker-stack.yml:
+- Определяет сервис `url-checker` для развертывания в Docker Swarm
+- Использует предварительно собранный образ из реестра
+- Настраивает переменные окружения из файла `.env`
+- Настраивает проверку работоспособности (healthcheck)
+- Определяет параметры развертывания (deploy):
+  - Режим репликации с настраиваемым количеством реплик
+  - Стратегию обновления с параллельностью 1 и задержкой 10 секунд
+  - Политику перезапуска при сбоях
+  - Ограничения и резервирование ресурсов (CPU и память)
+- Настраивает логирование с ротацией (максимальный размер 10 МБ, хранятся 3 последних файла)
+- Создает overlay-сеть для коммуникации между сервисами
+
 ### Вспомогательные скрипты
 
 #### deploy.sh
@@ -366,6 +433,127 @@ echo "Для остановки контейнера выполните: docker 
 - Проверяет наличие обязательных переменных окружения
 - Запускает контейнер в фоновом режиме
 - Выводит логи контейнера
+
+#### swarm_deploy.sh
+
+```bash
+#!/bin/bash
+# Скрипт для развертывания URL Checker в Docker Swarm
+
+set -e
+
+# Проверка, запущен ли Docker в режиме Swarm
+if ! docker info | grep -q "Swarm: active"; then
+    echo "Docker не запущен в режиме Swarm. Инициализируем Swarm..."
+    docker swarm init || {
+        echo "Не удалось инициализировать Swarm. Пожалуйста, выполните 'docker swarm init' вручную."
+        exit 1
+    }
+fi
+
+# Параметры по умолчанию
+STACK_NAME="url-checker"
+DOCKER_REGISTRY="localhost"
+TAG="latest"
+REPLICAS=1
+
+# Парсинг аргументов командной строки
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --stack-name)
+            STACK_NAME="$2"
+            shift 2
+            ;;
+        --registry)
+            DOCKER_REGISTRY="$2"
+            shift 2
+            ;;
+        --tag)
+            TAG="$2"
+            shift 2
+            ;;
+        --replicas)
+            REPLICAS="$2"
+            shift 2
+            ;;
+        --help)
+            echo "Использование: $0 [опции]"
+            echo "Опции:"
+            echo "  --stack-name NAME    Имя стека (по умолчанию: url-checker)"
+            echo "  --registry URL       URL Docker-реестра (по умолчанию: localhost)"
+            echo "  --tag TAG            Тег образа (по умолчанию: latest)"
+            echo "  --replicas N         Количество реплик (по умолчанию: 1)"
+            echo "  --help               Показать эту справку"
+            exit 0
+            ;;
+        *)
+            echo "Неизвестная опция: $key"
+            echo "Используйте --help для получения справки"
+            exit 1
+            ;;
+    esac
+done
+
+# Проверка наличия файла .env
+if [ ! -f .env ]; then
+    echo "Файл .env не найден. Создаю из примера..."
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        echo "Создан файл .env из примера. Пожалуйста, отредактируйте его перед запуском."
+        exit 1
+    else
+        echo "Ошибка: файл .env.example не найден. Пожалуйста, создайте файл .env вручную."
+        exit 1
+    fi
+fi
+
+# Проверка обязательных переменных в .env
+URL_TO_CHECK=$(grep -v '^#' .env | grep URL_TO_CHECK | cut -d '=' -f2)
+if [ -z "$URL_TO_CHECK" ]; then
+    echo "Ошибка: переменная URL_TO_CHECK не задана в файле .env"
+    exit 1
+fi
+
+# Сборка образа
+echo "Сборка Docker-образа..."
+docker build -t ${DOCKER_REGISTRY}/url-checker:${TAG} .
+
+# Если указан внешний реестр, отправляем образ
+if [ "$DOCKER_REGISTRY" != "localhost" ]; then
+    echo "Отправка образа в реестр ${DOCKER_REGISTRY}..."
+    docker push ${DOCKER_REGISTRY}/url-checker:${TAG}
+fi
+
+# Экспорт переменных для docker-stack.yml
+export DOCKER_REGISTRY
+export TAG
+export REPLICAS
+
+# Развертывание стека
+echo "Развертывание стека ${STACK_NAME}..."
+docker stack deploy -c docker-stack.yml ${STACK_NAME}
+
+echo "Стек ${STACK_NAME} успешно развернут."
+echo "Для просмотра сервисов выполните: docker service ls"
+echo "Для просмотра логов выполните: docker service logs ${STACK_NAME}_url-checker"
+echo "Для удаления стека выполните: docker stack rm ${STACK_NAME}"
+```
+
+Скрипт swarm_deploy.sh:
+- Проверяет, запущен ли Docker в режиме Swarm, и инициализирует его при необходимости
+- Принимает параметры командной строки для настройки развертывания:
+  - Имя стека
+  - URL Docker-реестра
+  - Тег образа
+  - Количество реплик
+- Проверяет наличие файла .env и создает его из примера при необходимости
+- Проверяет наличие обязательных переменных окружения
+- Собирает Docker-образ
+- Отправляет образ в реестр, если указан внешний реестр
+- Экспортирует переменные для docker-stack.yml
+- Развертывает стек в Docker Swarm
+- Выводит информацию о командах для управления стеком
 
 #### update.sh
 
@@ -535,6 +723,67 @@ Thumbs.db
 - Исключает файл .env с конфиденциальными данными
 - Исключает директорию logs и файлы логов
 - Исключает файлы Python, Docker, IDE и OS-специфичные файлы
+
+## Развертывание в Docker Swarm
+
+### Подготовка к развертыванию
+
+Для развертывания приложения в Docker Swarm необходимо:
+
+1. Инициализировать Docker Swarm на хосте:
+   ```bash
+   docker swarm init
+   ```
+   
+   Или присоединиться к существующему кластеру:
+   ```bash
+   docker swarm join --token <token> <manager-ip>:<port>
+   ```
+
+2. Настроить Docker-реестр для хранения образов (опционально):
+   - Использовать публичный реестр (Docker Hub)
+   - Настроить приватный реестр
+   - Использовать локальный реестр для тестирования:
+     ```bash
+     docker run -d -p 5000:5000 --restart=always --name registry registry:2
+     ```
+
+### Процесс развертывания
+
+Процесс развертывания в Docker Swarm включает следующие шаги:
+
+1. Сборка Docker-образа
+2. Отправка образа в реестр (если используется внешний реестр)
+3. Развертывание стека с помощью `docker stack deploy`
+
+Скрипт `swarm_deploy.sh` автоматизирует этот процесс.
+
+### Масштабирование и управление
+
+Docker Swarm позволяет легко масштабировать сервисы:
+
+```bash
+# Увеличение количества реплик
+docker service scale url-checker_url-checker=5
+
+# Обновление сервиса
+docker service update --image ${DOCKER_REGISTRY}/url-checker:${NEW_TAG} url-checker_url-checker
+```
+
+### Мониторинг сервисов
+
+Для мониторинга сервисов в Docker Swarm используйте:
+
+```bash
+# Просмотр всех сервисов
+docker service ls
+
+# Просмотр задач сервиса
+docker service ps url-checker_url-checker
+
+# Просмотр логов сервиса
+docker service logs url-checker_url-checker
+```
 
 ## Алгоритм работы приложения
 

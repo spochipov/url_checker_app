@@ -163,6 +163,49 @@ docker compose logs
    ./deploy.sh
    ```
 
+### Развертывание в Docker Swarm
+
+Для развертывания приложения в кластере Docker Swarm используйте скрипт `swarm_deploy.sh`:
+
+1. Убедитесь, что Docker запущен в режиме Swarm (или скрипт инициализирует его автоматически)
+2. Настройте переменные окружения в файле `.env`
+3. Сделайте скрипт исполняемым:
+   ```bash
+   chmod +x swarm_deploy.sh
+   ```
+4. Запустите скрипт:
+   ```bash
+   ./swarm_deploy.sh
+   ```
+
+Скрипт поддерживает следующие опции:
+```
+--stack-name NAME    Имя стека (по умолчанию: url-checker)
+--registry URL       URL Docker-реестра (по умолчанию: localhost)
+--tag TAG            Тег образа (по умолчанию: latest)
+--replicas N         Количество реплик (по умолчанию: 1)
+```
+
+Пример использования с внешним реестром и несколькими репликами:
+```bash
+./swarm_deploy.sh --registry registry.example.com --replicas 3
+```
+
+Управление развернутым стеком:
+```bash
+# Просмотр сервисов
+docker service ls
+
+# Просмотр логов
+docker service logs url-checker_url-checker
+
+# Масштабирование сервиса
+docker service scale url-checker_url-checker=5
+
+# Удаление стека
+docker stack rm url-checker
+```
+
 ### Обновление приложения
 
 Для обновления приложения из репозитория используйте скрипт `update.sh`:

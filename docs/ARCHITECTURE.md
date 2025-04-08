@@ -5,39 +5,46 @@
 ```mermaid
 graph TD
     subgraph "Конфигурация"
+        direction TB
         ENV[".env файл"] --> CONFIG["Переменные окружения"]
     end
 
     subgraph "Основной процесс"
+        direction TB
         MAIN["main.py"] --> INIT["Инициализация"]
         INIT --> LOGGER["Настройка логирования"]
         INIT --> SESSION["Создание HTTP-сессии с retry"]
         SESSION --> LOOP["Основной цикл"]
-        
+
         LOOP --> CHECK["Проверка URL"]
         CHECK --> ANALYZE["Анализ ответа"]
-        ANALYZE --> |"Успех (200)"| LOG_SUCCESS["Логирование успеха"]
-        ANALYZE --> |"Ошибка (!= 200)"| LOG_ERROR["Логирование ошибки"]
+        ANALYZE -- "Успех (200)" --> LOG_SUCCESS["Логирование успеха"]
+        ANALYZE -- "Ошибка (!= 200)" --> LOG_ERROR["Логирование ошибки"]
         LOG_ERROR --> NOTIFY["Отправка уведомления"]
-        
+
         LOG_SUCCESS --> SLEEP["Ожидание (interval)"]
         NOTIFY --> SLEEP
-        SLEEP --> CHECK
+        SLEEP --> LOOP
     end
-    
-    CONFIG --> MAIN
-    
+
     subgraph "Уведомления"
-        NOTIFY --> TELEGRAM["Telegram API"]
+        direction TB
+        TELEGRAM["Telegram API"]
     end
-    
+
     subgraph "Логирование"
-        LOG_SUCCESS --> LOG_FILE["logs/app.log"]
-        LOG_ERROR --> LOG_FILE
-        LOG_SUCCESS --> CONSOLE["Консоль"]
-        LOG_ERROR --> CONSOLE
+        direction TB
+        LOG_FILE["logs/app.log"]
+        CONSOLE["Консоль"]
     end
-end
+
+    CONFIG --> MAIN
+    NOTIFY --> TELEGRAM
+    LOG_SUCCESS --> LOG_FILE
+    LOG_ERROR --> LOG_FILE
+    LOG_SUCCESS --> CONSOLE
+    LOG_ERROR --> CONSOLE
+
 ```
 ## Варианты развертывания
 

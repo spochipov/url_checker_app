@@ -37,6 +37,7 @@ graph TD
         LOG_SUCCESS --> CONSOLE["Консоль"]
         LOG_ERROR --> CONSOLE
     end
+end
 </mermaid>
 
 ## Варианты развертывания
